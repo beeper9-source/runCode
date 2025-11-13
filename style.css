@@ -41,9 +41,11 @@ header .logo-container {
 }
 
 header .logo-container img {
-    height: 40px;
-    filter: brightness(0) invert(1);
+    height: 50px;
     object-fit: contain;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px;
+    border-radius: 5px;
 }
 
 nav {
