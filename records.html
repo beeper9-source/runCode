@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>런닝 앱 - 런닝 기록</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏃 런닝 앱</h1>
+            <nav>
+                <a href="index.html">홈</a>
+                <a href="members.html">회원 관리</a>
+                <a href="records.html" class="active">런닝 기록</a>
+                <a href="missions.html">주간 미션</a>
+            </nav>
+        </header>
+        <main>
+            <div class="page-header">
+                <h2>런닝 기록</h2>
+                <button class="btn btn-primary" onclick="openRecordModal()">기록 등록</button>
+            </div>
+
+            <div class="filters">
+                <select id="memberFilter" onchange="loadRecords()">
+                    <option value="">전체 회원</option>
+                </select>
+                <select id="periodFilter" onchange="loadRecords()">
+                    <option value="all">전체</option>
+                    <option value="week">이번 주</option>
+                    <option value="month">이번 달</option>
+                    <option value="custom">사용자 지정</option>
+                </select>
+                <input type="date" id="startDate" onchange="loadRecords()" style="display:none;">
+                <input type="date" id="endDate" onchange="loadRecords()" style="display:none;">
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="stats-grid" id="statisticsCards" style="display:none;">
+                <div class="stat-card">
+                    <h3>총 거리</h3>
+                    <div class="value" id="totalDistance">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>총 시간</h3>
+                    <div class="value" id="totalTime">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>평균 페이스</h3>
+                    <div class="value" id="averagePace">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>런닝 횟수</h3>
+                    <div class="value" id="runCount">-</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>회원</th>
+                            <th>거리 (km)</th>
+                            <th>시간</th>
+                            <th>페이스</th>
+                            <th>메모</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTable">
+                        <tr>
+                            <td colspan="7" class="empty-state">데이터를 불러오는 중...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 기록 등록/수정 모달 -->
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">기록 등록</h3>
+                <span class="close" onclick="closeRecordModal()">&times;</span>
+            </div>
+            <form id="recordForm" onsubmit="saveRecord(event)">
+                <input type="hidden" id="recordId">
+                <div class="form-group">
+                    <label for="memberId">회원 *</label>
+                    <select id="memberId" required onchange="calculatePace()">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="runningDate">날짜 *</label>
+                    <input type="date" id="runningDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="distance">거리 (km) *</label>
+                    <input type="number" id="distance" step="0.01" min="0" required onchange="calculatePace()" oninput="calculatePace()">
+                </div>
+                <div class="form-group">
+                    <label for="runningTime">시간 (HH:MM:SS) *</label>
+                    <input type="text" id="runningTime" placeholder="00:52:30" required onchange="calculatePace()" oninput="calculatePace()">
+                </div>
+                <div class="form-group">
+                    <label for="pace">페이스 (자동 계산)</label>
+                    <input type="text" id="pace" readonly style="background: #f0f0f0;">
+                </div>
+                <div class="form-group">
+                    <label for="memo">메모</label>
+                    <textarea id="memo" rows="3"></textarea>
+                </div>
+                <div id="bestRecordBadge" style="display:none; margin-bottom: 15px;">
+                    <span class="badge badge-success">개인 베스트 기록 갱신!</span>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeRecordModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="records.js"></script>
+</body>
+</html>
+

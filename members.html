@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>런닝 앱 - 회원 관리</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏃 런닝 앱</h1>
+            <nav>
+                <a href="index.html">홈</a>
+                <a href="members.html" class="active">회원 관리</a>
+                <a href="records.html">런닝 기록</a>
+                <a href="missions.html">주간 미션</a>
+            </nav>
+        </header>
+        <main>
+            <div class="page-header">
+                <h2>회원 관리</h2>
+                <button class="btn btn-primary" onclick="openMemberModal()">회원 등록</button>
+            </div>
+
+            <div class="filters">
+                <select id="teamFilter" onchange="loadMembers()">
+                    <option value="">전체 조</option>
+                    <option value="A">A조</option>
+                    <option value="B">B조</option>
+                    <option value="C">C조</option>
+                    <option value="D">D조</option>
+                    <option value="E">E조</option>
+                    <option value="F">F조</option>
+                </select>
+                <input type="text" id="searchInput" placeholder="이름 또는 부서 검색..." onkeyup="loadMembers()">
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>이름</th>
+                            <th>부서</th>
+                            <th>조</th>
+                            <th>10km 베스트</th>
+                            <th>하프 베스트</th>
+                            <th>풀 베스트</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="membersTable">
+                        <tr>
+                            <td colspan="7" class="empty-state">데이터를 불러오는 중...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 회원 등록/수정 모달 -->
+    <div id="memberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">회원 등록</h3>
+                <span class="close" onclick="closeMemberModal()">&times;</span>
+            </div>
+            <form id="memberForm" onsubmit="saveMember(event)">
+                <input type="hidden" id="memberId">
+                <div class="form-group">
+                    <label for="name">이름 *</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="department">부서 *</label>
+                    <input type="text" id="department" required>
+                </div>
+                <div class="form-group">
+                    <label for="team">조편성 *</label>
+                    <select id="team" required>
+                        <option value="">선택하세요</option>
+                        <option value="A">A조</option>
+                        <option value="B">B조</option>
+                        <option value="C">C조</option>
+                        <option value="D">D조</option>
+                        <option value="E">E조</option>
+                        <option value="F">F조</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="best10km">10km 베스트 (HH:MM:SS)</label>
+                    <input type="text" id="best10km" placeholder="00:45:30">
+                </div>
+                <div class="form-group">
+                    <label for="bestHalf">하프 마라톤 베스트 (HH:MM:SS)</label>
+                    <input type="text" id="bestHalf" placeholder="01:35:00">
+                </div>
+                <div class="form-group">
+                    <label for="bestFull">풀 마라톤 베스트 (HH:MM:SS)</label>
+                    <input type="text" id="bestFull" placeholder="03:30:00">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeMemberModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="members.js"></script>
+</body>
+</html>
+

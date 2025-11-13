@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>런닝 앱 - 주간 미션</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏃 런닝 앱</h1>
+            <nav>
+                <a href="index.html">홈</a>
+                <a href="members.html">회원 관리</a>
+                <a href="records.html">런닝 기록</a>
+                <a href="missions.html" class="active">주간 미션</a>
+            </nav>
+        </header>
+        <main>
+            <div class="page-header">
+                <h2>주간 미션</h2>
+                <button class="btn btn-primary" onclick="openMissionModal()">미션 등록</button>
+            </div>
+
+            <div class="filters">
+                <select id="yearFilter" onchange="loadMissions()">
+                    <option value="">전체 연도</option>
+                </select>
+                <select id="activeFilter" onchange="loadMissions()">
+                    <option value="">전체</option>
+                    <option value="true">활성</option>
+                    <option value="false">비활성</option>
+                </select>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div id="missionsList">
+                <div class="empty-state">데이터를 불러오는 중...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 미션 등록/수정 모달 -->
+    <div id="missionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">미션 등록</h3>
+                <span class="close" onclick="closeMissionModal()">&times;</span>
+            </div>
+            <form id="missionForm" onsubmit="saveMission(event)">
+                <input type="hidden" id="missionId">
+                <div class="form-group">
+                    <label for="year">년도 *</label>
+                    <input type="number" id="year" min="2020" max="2100" required>
+                </div>
+                <div class="form-group">
+                    <label for="weekNumber">주차 *</label>
+                    <input type="number" id="weekNumber" min="1" max="53" required>
+                </div>
+                <div class="form-group">
+                    <label for="title">제목 *</label>
+                    <input type="text" id="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">설명</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="targetDistance">목표 거리 (km)</label>
+                    <input type="number" id="targetDistance" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="startDate">시작일 *</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="endDate">종료일 *</label>
+                    <input type="date" id="endDate" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="isActive" checked> 활성화
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeMissionModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 미션 상세 모달 -->
+    <div id="missionDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="detailModalTitle">미션 상세</h3>
+                <span class="close" onclick="closeMissionDetailModal()">&times;</span>
+            </div>
+            <div id="missionDetailContent">
+                <div class="empty-state">로딩 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="missions.js"></script>
+</body>
+</html>
+
