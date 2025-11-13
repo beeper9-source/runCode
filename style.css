@@ -42,10 +42,17 @@ header .logo-container {
 
 header .logo-container img {
     height: 50px;
+    max-width: 150px;
+    width: auto;
     object-fit: contain;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 5px;
-    border-radius: 5px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    display: block;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 nav {
@@ -468,6 +475,15 @@ tbody tr:last-child {
 @media (max-width: 768px) {
     header h1 {
         font-size: 1.8em;
+    }
+
+    header .logo-container {
+        gap: 10px;
+    }
+
+    header .logo-container img {
+        height: 40px;
+        max-width: 120px;
     }
 
     nav {
