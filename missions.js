@@ -1,4 +1,6 @@
 let currentEditId = null;
+const teams = ['A', 'B', 'C', 'D', 'E', 'F'];
+const daysOfWeek = ['목', '금', '토', '일', '월', '화', '수'];
 
 // 미션 목록 로드
 async function loadMissions() {
@@ -66,7 +68,6 @@ function displayMissions(missions) {
                 <div class="meta">
                     <span>${mission.year}년 ${mission.week_number}주차</span>
                     <span>${startDate} ~ ${endDate}</span>
-                    ${mission.target_distance ? `<span>목표: ${parseFloat(mission.target_distance).toFixed(1)} km</span>` : ''}
                 </div>
                 ${mission.description ? `<p style="color: #666; margin-top: 10px;">${mission.description}</p>` : ''}
                 <div style="margin-top: 15px; display: flex; gap: 10px;">
@@ -89,8 +90,18 @@ async function showMissionDetail(missionId) {
 
         if (error) throw error;
 
+        // 미션 상세 정보 가져오기
+        const { data: details, error: detailsError } = await supabase
+            .from('rc_mission_detail')
+            .select('*')
+            .eq('mission_id', missionId)
+            .order('team')
+            .order('day_of_week');
+
+        if (detailsError) throw detailsError;
+
         // 진행률 계산
-        const progress = await calculateMissionProgress(missionId, mission);
+        const progress = await calculateMissionProgress(missionId, mission, details);
 
         const startDate = new Date(mission.start_date).toLocaleDateString('ko-KR');
         const endDate = new Date(mission.end_date).toLocaleDateString('ko-KR');
@@ -101,20 +112,54 @@ async function showMissionDetail(missionId) {
                 <div style="margin-bottom: 20px; color: #666;">
                     <p><strong>년도/주차:</strong> ${mission.year}년 ${mission.week_number}주차</p>
                     <p><strong>기간:</strong> ${startDate} ~ ${endDate}</p>
-                    ${mission.target_distance ? `<p><strong>목표 거리:</strong> ${parseFloat(mission.target_distance).toFixed(1)} km</p>` : ''}
                     <p><strong>상태:</strong> ${mission.is_active ? '<span class="badge badge-success">활성</span>' : '<span class="badge badge-warning">비활성</span>'}</p>
                     ${mission.description ? `<p style="margin-top: 15px;"><strong>설명:</strong><br>${mission.description}</p>` : ''}
                 </div>
 
-                <div class="team-progress">
+                <div style="margin-top: 30px;">
+                    <h4 style="margin-bottom: 20px;">조별 요일별 미션</h4>
+                    <div style="overflow-x: auto;">
+                        <table class="mission-table">
+                            <thead>
+                                <tr>
+                                    <th class="team-header">조</th>
+                                    ${daysOfWeek.map(day => `<th class="day-header">${day}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+
+        // 조별로 미션 표시
+        teams.forEach(team => {
+            content += `<tr><td class="team-header">${team}조</td>`;
+            daysOfWeek.forEach(day => {
+                const detail = details.find(d => d.team === team && d.day_of_week === day);
+                if (detail) {
+                    content += `<td>
+                        ${detail.mission_content ? `<strong>${detail.mission_content}</strong><br>` : ''}
+                        ${detail.target_distance ? `목표: ${parseFloat(detail.target_distance).toFixed(1)} km` : ''}
+                    </td>`;
+                } else {
+                    content += `<td>-</td>`;
+                }
+            });
+            content += `</tr>`;
+        });
+
+        content += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="team-progress" style="margin-top: 30px;">
                     <h4 style="margin-bottom: 20px;">조별 진행 현황</h4>
         `;
 
         // 조별 진행률 표시
-        const teams = ['A', 'B', 'C', 'D', 'E', 'F'];
         progress.forEach(teamProgress => {
             const achievementRate = teamProgress.achievement_rate || 0;
-            const progressWidth = Math.min(achievementRate, 200); // 최대 200%까지 표시
+            const progressWidth = Math.min(achievementRate, 200);
             
             content += `
                 <div class="team-progress-item">
@@ -147,9 +192,8 @@ async function showMissionDetail(missionId) {
 }
 
 // 미션 진행률 계산
-async function calculateMissionProgress(missionId, mission) {
+async function calculateMissionProgress(missionId, mission, details) {
     try {
-        const teams = ['A', 'B', 'C', 'D', 'E', 'F'];
         const progress = [];
 
         for (const team of teams) {
@@ -177,7 +221,7 @@ async function calculateMissionProgress(missionId, mission) {
             // 기간 내 런닝 기록 가져오기
             const { data: records, error: recordsError } = await supabase
                 .from('rc_running_record')
-                .select('distance')
+                .select('distance, running_date')
                 .in('member_id', memberIds)
                 .gte('running_date', mission.start_date)
                 .lte('running_date', mission.end_date);
@@ -187,8 +231,13 @@ async function calculateMissionProgress(missionId, mission) {
             const totalDistance = records.reduce((sum, r) => sum + parseFloat(r.distance || 0), 0);
             const memberCount = memberIds.length;
             const averageDistance = memberCount > 0 ? totalDistance / memberCount : 0;
-            const achievementRate = mission.target_distance && mission.target_distance > 0
-                ? (averageDistance / mission.target_distance) * 100
+
+            // 조별 목표 거리 계산 (요일별 목표 거리 합계)
+            const teamDetails = details.filter(d => d.team === team);
+            const totalTargetDistance = teamDetails.reduce((sum, d) => sum + parseFloat(d.target_distance || 0), 0);
+            
+            const achievementRate = totalTargetDistance > 0
+                ? (averageDistance / totalTargetDistance) * 100
                 : 0;
 
             progress.push({
@@ -226,15 +275,53 @@ function openMissionModal(missionId = null) {
         document.getElementById('missionId').value = '';
         document.getElementById('year').value = new Date().getFullYear();
         document.getElementById('isActive').checked = true;
+        buildMissionDetailTable();
     }
 
     modal.classList.add('active');
 }
 
+// 미션 상세 테이블 생성
+function buildMissionDetailTable() {
+    const tbody = document.getElementById('missionDetailBody');
+    tbody.innerHTML = '';
+
+    teams.forEach(team => {
+        const row = document.createElement('tr');
+        const teamCell = document.createElement('td');
+        teamCell.className = 'team-header';
+        teamCell.textContent = `${team}조`;
+        row.appendChild(teamCell);
+
+        daysOfWeek.forEach(day => {
+            const cell = document.createElement('td');
+            cell.innerHTML = `
+                <input type="text" 
+                       placeholder="미션 내용" 
+                       data-team="${team}" 
+                       data-day="${day}" 
+                       class="mission-content"
+                       style="width: 100%; margin-bottom: 5px;">
+                <input type="number" 
+                       step="0.1" 
+                       min="0" 
+                       placeholder="목표 거리(km)" 
+                       data-team="${team}" 
+                       data-day="${day}" 
+                       class="mission-distance"
+                       style="width: 100%;">
+            `;
+            row.appendChild(cell);
+        });
+
+        tbody.appendChild(row);
+    });
+}
+
 // 미션 데이터 로드 (수정용)
 async function loadMissionData(missionId) {
     try {
-        const { data, error } = await supabase
+        const { data: mission, error } = await supabase
             .from('rc_weekly_mission')
             .select('*')
             .eq('mission_id', missionId)
@@ -242,15 +329,43 @@ async function loadMissionData(missionId) {
 
         if (error) throw error;
 
-        document.getElementById('missionId').value = data.mission_id;
-        document.getElementById('year').value = data.year;
-        document.getElementById('weekNumber').value = data.week_number;
-        document.getElementById('title').value = data.title;
-        document.getElementById('description').value = data.description || '';
-        document.getElementById('targetDistance').value = data.target_distance || '';
-        document.getElementById('startDate').value = data.start_date;
-        document.getElementById('endDate').value = data.end_date;
-        document.getElementById('isActive').checked = data.is_active;
+        // 미션 상세 정보 가져오기
+        const { data: details, error: detailsError } = await supabase
+            .from('rc_mission_detail')
+            .select('*')
+            .eq('mission_id', missionId);
+
+        if (detailsError) throw detailsError;
+
+        // 기본 정보 설정
+        document.getElementById('missionId').value = mission.mission_id;
+        document.getElementById('year').value = mission.year;
+        document.getElementById('weekNumber').value = mission.week_number;
+        document.getElementById('title').value = mission.title;
+        document.getElementById('description').value = mission.description || '';
+        document.getElementById('startDate').value = mission.start_date;
+        document.getElementById('endDate').value = mission.end_date;
+        document.getElementById('isActive').checked = mission.is_active;
+
+        // 미션 상세 테이블 생성 및 데이터 채우기
+        buildMissionDetailTable();
+
+        // 상세 정보 채우기
+        details.forEach(detail => {
+            const contentInput = document.querySelector(
+                `.mission-content[data-team="${detail.team}"][data-day="${detail.day_of_week}"]`
+            );
+            const distanceInput = document.querySelector(
+                `.mission-distance[data-team="${detail.team}"][data-day="${detail.day_of_week}"]`
+            );
+
+            if (contentInput) {
+                contentInput.value = detail.mission_content || '';
+            }
+            if (distanceInput) {
+                distanceInput.value = detail.target_distance || '';
+            }
+        });
     } catch (error) {
         console.error('미션 데이터 로드 오류:', error);
         showAlert('미션 정보를 불러오는 중 오류가 발생했습니다.', 'error');
@@ -273,7 +388,6 @@ async function saveMission(event) {
             week_number: parseInt(document.getElementById('weekNumber').value),
             title: document.getElementById('title').value,
             description: document.getElementById('description').value || null,
-            target_distance: document.getElementById('targetDistance').value ? parseFloat(document.getElementById('targetDistance').value) : null,
             start_date: document.getElementById('startDate').value,
             end_date: document.getElementById('endDate').value,
             is_active: document.getElementById('isActive').checked
@@ -285,7 +399,8 @@ async function saveMission(event) {
             return;
         }
 
-        let result;
+        let savedMissionId;
+
         if (missionId) {
             // 수정
             const { data, error } = await supabase
@@ -296,7 +411,16 @@ async function saveMission(event) {
                 .single();
             
             if (error) throw error;
-            result = data;
+            savedMissionId = data.mission_id;
+
+            // 기존 상세 정보 삭제
+            const { error: deleteError } = await supabase
+                .from('rc_mission_detail')
+                .delete()
+                .eq('mission_id', savedMissionId);
+
+            if (deleteError) throw deleteError;
+
             showAlert('미션이 수정되었습니다.', 'success');
         } else {
             // 등록
@@ -307,8 +431,43 @@ async function saveMission(event) {
                 .single();
             
             if (error) throw error;
-            result = data;
+            savedMissionId = data.mission_id;
             showAlert('미션이 등록되었습니다.', 'success');
+        }
+
+        // 미션 상세 정보 저장
+        const detailData = [];
+        teams.forEach(team => {
+            daysOfWeek.forEach(day => {
+                const contentInput = document.querySelector(
+                    `.mission-content[data-team="${team}"][data-day="${day}"]`
+                );
+                const distanceInput = document.querySelector(
+                    `.mission-distance[data-team="${team}"][data-day="${day}"]`
+                );
+
+                const missionContent = contentInput.value.trim();
+                const targetDistance = distanceInput.value ? parseFloat(distanceInput.value) : null;
+
+                // 미션 내용이나 목표 거리가 있으면 저장
+                if (missionContent || targetDistance) {
+                    detailData.push({
+                        mission_id: savedMissionId,
+                        team: team,
+                        day_of_week: day,
+                        mission_content: missionContent || null,
+                        target_distance: targetDistance
+                    });
+                }
+            });
+        });
+
+        if (detailData.length > 0) {
+            const { error: detailError } = await supabase
+                .from('rc_mission_detail')
+                .insert(detailData);
+
+            if (detailError) throw detailError;
         }
 
         closeMissionModal();
@@ -321,7 +480,7 @@ async function saveMission(event) {
 
 // 미션 삭제
 async function deleteMission(missionId) {
-    if (!confirm('정말로 이 미션을 삭제하시겠습니까?')) {
+    if (!confirm('정말로 이 미션을 삭제하시겠습니까? 관련된 모든 미션 상세 정보도 함께 삭제됩니다.')) {
         return;
     }
 
@@ -371,4 +530,3 @@ function showAlert(message, type = 'info') {
 
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', loadMissions);
-
