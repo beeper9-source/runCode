@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>런닝 앱 - 회원별 실적 입력</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .mission-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .mission-table th,
+        .mission-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        .mission-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .team-header {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        .day-header {
+            background-color: #f5f5f5;
+            color: black;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <img src="logo.JPG" alt="로고" loading="eager" onerror="this.style.display='none'">
+                <h1 style="margin: 0;">runCode</h1>
+            </div>
+            <nav>
+                <a href="index.html">홈</a>
+                <a href="members.html">회원 관리</a>
+                <a href="records.html">런닝 기록</a>
+                <a href="missions.html">주간 미션</a>
+                <a href="performance.html" class="active">회원별 실적 입력</a>
+            </nav>
+        </header>
+        <main>
+            <div class="page-header">
+                <h2>회원별 실적 입력</h2>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="performanceMissionSelect">미션 선택 *</label>
+                <select id="performanceMissionSelect" onchange="loadPerformanceData()" style="width: 100%; padding: 8px;">
+                    <option value="">미션을 선택하세요</option>
+                </select>
+            </div>
+
+            <div id="performanceFilters" style="display: none; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label for="performanceTeamFilter">조 선택</label>
+                        <select id="performanceTeamFilter" onchange="filterPerformanceTable()" style="width: 100%; padding: 8px;">
+                            <option value="">전체 조</option>
+                            <option value="A">A조</option>
+                            <option value="B">B조</option>
+                            <option value="C">C조</option>
+                            <option value="D">D조</option>
+                            <option value="E">E조</option>
+                            <option value="F">F조</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="performanceMemberFilter">회원 선택</label>
+                        <select id="performanceMemberFilter" onchange="filterPerformanceTable()" style="width: 100%; padding: 8px;">
+                            <option value="">전체 회원</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="performanceContainer" style="display: none;">
+                <div style="overflow-x: auto;">
+                    <table class="mission-table" id="performanceTable">
+                        <thead id="performanceHeader">
+                            <tr>
+                                <th class="team-header">조</th>
+                                <th class="team-header">회원명</th>
+                                <!-- 요일 헤더는 JavaScript로 동적 생성 -->
+                                <th class="team-header">완료</th>
+                            </tr>
+                        </thead>
+                        <tbody id="performanceBody">
+                            <!-- JavaScript로 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 20px; text-align: left;">
+                    <button type="button" class="btn btn-primary" onclick="savePerformance()">저장</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="performance.js"></script>
+</body>
+</html>
+

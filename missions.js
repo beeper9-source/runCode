@@ -160,12 +160,15 @@ async function showMissionDetail(missionId) {
         progress.forEach(teamProgress => {
             const achievementRate = teamProgress.achievement_rate || 0;
             const progressWidth = Math.min(achievementRate, 200);
+            const completedCount = teamProgress.completed_count || 0;
+            const targetCount = teamProgress.target_count || 0;
             
             content += `
                 <div class="team-progress-item">
                     <h4>${teamProgress.team}조</h4>
-                    <p>총 거리: ${teamProgress.total_distance.toFixed(1)} km</p>
+                    <p>완료 횟수: ${completedCount}회 / 목표: ${targetCount}회</p>
                     <p>회원 수: ${teamProgress.member_count}명</p>
+                    <p>총 거리: ${teamProgress.total_distance.toFixed(1)} km</p>
                     <p>평균 거리: ${teamProgress.average_distance.toFixed(1)} km</p>
                     <p>달성률: ${achievementRate.toFixed(1)}%</p>
                     <div class="progress-bar">
@@ -195,6 +198,9 @@ async function showMissionDetail(missionId) {
 async function calculateMissionProgress(missionId, mission, details) {
     try {
         const progress = [];
+        
+        // 미션 기간의 요일별 날짜 계산
+        const dates = getWeekDates(mission.start_date, mission.end_date);
 
         for (const team of teams) {
             // 조별 회원 가져오기
@@ -206,38 +212,50 @@ async function calculateMissionProgress(missionId, mission, details) {
             if (membersError) throw membersError;
 
             const memberIds = members.map(m => m.member_id);
+            const memberCount = memberIds.length;
             
-            if (memberIds.length === 0) {
+            if (memberCount === 0) {
                 progress.push({
                     team: team,
                     total_distance: 0,
                     member_count: 0,
                     average_distance: 0,
-                    achievement_rate: 0
+                    achievement_rate: 0,
+                    completed_count: 0,
+                    target_count: 0
                 });
                 continue;
             }
 
-            // 기간 내 런닝 기록 가져오기
+            // 조별 미션 상세 정보 가져오기
+            const teamDetails = details.filter(d => d.team === team);
+            
+            // 목표 완료 횟수 계산: 미션이 설정된 요일 수 * 회원 수
+            // 각 요일별로 미션이 있으면 그 요일에 모든 회원이 완료해야 함
+            const missionDays = new Set(teamDetails.map(d => d.day_of_week));
+            const targetCount = missionDays.size * memberCount;
+
+            // 기간 내 런닝 기록 가져오기 (실적 입력 데이터)
             const { data: records, error: recordsError } = await supabase
                 .from('rc_running_record')
-                .select('distance, running_date')
+                .select('distance, running_date, member_id')
                 .in('member_id', memberIds)
                 .gte('running_date', mission.start_date)
                 .lte('running_date', mission.end_date);
 
             if (recordsError) throw recordsError;
 
+            // 실제 완료 횟수 계산 (distance > 0인 기록 = O 선택한 횟수)
+            const completedRecords = records.filter(r => parseFloat(r.distance || 0) > 0);
+            const completedCount = completedRecords.length;
+
+            // 거리 정보도 계산 (표시용)
             const totalDistance = records.reduce((sum, r) => sum + parseFloat(r.distance || 0), 0);
-            const memberCount = memberIds.length;
             const averageDistance = memberCount > 0 ? totalDistance / memberCount : 0;
 
-            // 조별 목표 거리 계산 (요일별 목표 거리 합계)
-            const teamDetails = details.filter(d => d.team === team);
-            const totalTargetDistance = teamDetails.reduce((sum, d) => sum + parseFloat(d.target_distance || 0), 0);
-            
-            const achievementRate = totalTargetDistance > 0
-                ? (averageDistance / totalTargetDistance) * 100
+            // 달성률 계산: (완료 횟수 / 목표 횟수) * 100
+            const achievementRate = targetCount > 0
+                ? (completedCount / targetCount) * 100
                 : 0;
 
             progress.push({
@@ -245,7 +263,9 @@ async function calculateMissionProgress(missionId, mission, details) {
                 total_distance: totalDistance,
                 member_count: memberCount,
                 average_distance: averageDistance,
-                achievement_rate: achievementRate
+                achievement_rate: achievementRate,
+                completed_count: completedCount,
+                target_count: targetCount
             });
         }
 
@@ -526,6 +546,61 @@ function showAlert(message, type = 'info') {
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);
+}
+
+
+// 주간 날짜 계산 (목요일부터 수요일) - 미션 진행률 계산용
+function getWeekDates(startDate, endDate) {
+    const dates = [];
+    // 로컬 시간대 기준으로 날짜 파싱 (YYYY-MM-DD 형식)
+    const [year, month, day] = startDate.split('-').map(Number);
+    const start = new Date(year, month - 1, day);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    
+    // 시작일이 목요일이 되도록 조정 (목요일 = 4)
+    const startDay = start.getDay(); // 0=일, 1=월, ..., 4=목, 5=금, 6=토
+    let daysToThursday = 0;
+    
+    if (startDay === 0) { // 일요일
+        daysToThursday = 4;
+    } else if (startDay <= 4) { // 월~목
+        daysToThursday = 4 - startDay;
+    } else { // 금~토
+        daysToThursday = 4 - startDay + 7;
+    }
+    
+    const thursday = new Date(start);
+    thursday.setDate(start.getDate() + daysToThursday);
+    
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    
+    // 목요일부터 수요일까지 7일
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(thursday);
+        date.setDate(thursday.getDate() + i);
+        
+        // 날짜를 YYYY-MM-DD 형식으로 변환
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        // startDate와 endDate 범위 내에 있는지 확인
+        if (dateStr >= startDate && dateStr <= endDate) {
+            const dayName = dayNames[date.getDay()];
+            const displayMonth = date.getMonth() + 1;
+            const displayDay = date.getDate();
+            dates.push({
+                date: dateStr,
+                dayName: dayName,
+                displayDate: `${displayMonth}/${displayDay}`,
+                fullDisplay: `${dayName}<br>${displayMonth}/${displayDay}`
+            });
+        }
+    }
+    
+    return dates;
 }
 
 // 페이지 로드 시 실행
